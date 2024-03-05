@@ -1,28 +1,35 @@
-import { Scene } from 'phaser';
+import { Scene } from "phaser";
 
-export class Game extends Scene
-{
-    constructor ()
-    {
-        super('Game');
-    }
+export class Game extends Scene {
+  constructor() {
+    super("Game");
+  }
 
-    create ()
-    {
-        this.cameras.main.setBackgroundColor(0x00ff00);
+  create() {
+    this.add.image(0, 0, "grid").setOrigin(0);
 
-        this.add.image(512, 384, 'background').setAlpha(0.5);
+    const cursors = this.input.keyboard.createCursorKeys();
 
-        this.add.text(512, 384, 'Make something fun!\nand share it with us:\nsupport@phaser.io', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5);
+    const controlConfig = {
+      camera: this.cameras.main,
+      left: cursors.left,
+      right: cursors.right,
+      up: cursors.up,
+      down: cursors.down,
+      acceleration: 0.02,
+      drag: 0.0005,
+      maxSpeed: 1.0,
+    };
 
-        this.input.once('pointerdown', () => {
+    this.controls = new Phaser.Cameras.Controls.SmoothedKeyControl(
+      controlConfig
+    );
+    const cam = this.cameras.main;
 
-            this.scene.start('GameOver');
+    cam.setBounds(0, 0, 4096, 4096).setZoom(1);
+  }
 
-        });
-    }
+  update(time, delta) {
+    this.controls.update(delta);
+  }
 }
