@@ -1,6 +1,10 @@
 import { Scene } from "phaser";
 
 export class Game extends Scene {
+  globe;
+  cursor;
+  cam;
+
   constructor() {
     super("Game");
   }
@@ -8,28 +12,26 @@ export class Game extends Scene {
   create() {
     this.add.image(0, 0, "grid").setOrigin(0);
 
-    const cursors = this.input.keyboard.createCursorKeys();
+    this.globe = this.physics.add
+      .image(this.cameras.main.centerX, this.cameras.main.centerY, "ball")
+      .setCircle(45)
+      .setCollideWorldBounds(true);
 
-    const controlConfig = {
-      camera: this.cameras.main,
-      left: cursors.left,
-      right: cursors.right,
-      up: cursors.up,
-      down: cursors.down,
-      acceleration: 0.02,
-      drag: 0.0005,
-      maxSpeed: 1.0,
-    };
+    this.cam = this.cameras.main;
 
-    this.controls = new Phaser.Cameras.Controls.SmoothedKeyControl(
-      controlConfig
-    );
-    const cam = this.cameras.main;
+    this.cam.setBounds(0, 0, 4096, 4096).setZoom(1);
+    this.physics.world.setBounds(100, 100, 4000, 4000);
 
-    cam.setBounds(0, 0, 4096, 4096).setZoom(1);
-  }
+    this.cam.startFollow(this.globe);
 
-  update(time, delta) {
-    this.controls.update(delta);
+    this.cursor = this.add.rectangle(0, 0, 20, 20);
+
+    this.physics.add.collider(this.globe);
+
+    this.input.on("pointermove", (pointer) => {
+      let p = this.cam.getWorldPoint(pointer.x, pointer.y);
+
+      this.physics.moveToObject(this.globe, p, 200);
+    });
   }
 }
