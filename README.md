@@ -1,19 +1,38 @@
-# Phaser Vite Template
+# Phaser JS Agario Clone that uses Supabase Realtime.
 
-This is a Phaser 3 project template that uses Vite for bundling. It supports hot-reloading for quick development workflow and includes scripts to generate production-ready builds.
+This is a Phaser 3 project web game that uses Vite for bundling. It supports hot-reloading for quick development workflow and includes scripts to generate production-ready builds. Also includes Supabase backend realtime connectivity with postgres and edge functions using Deno.
 
 ### Versions
 
-This template has been updated for:
-
 - [Phaser 3.80.1](https://github.com/phaserjs/phaser)
 - [Vite 5.1.4](https://github.com/vitejs/vite)
+- [Supabase 2.39.7](https://github.com/supabase/supabase-js)
+- [uuid 9.0.1](https://github.com/uuidjs/uuid)
 
 ![screenshot](screenshot.png)
 
 ## Requirements
 
 [Node.js](https://nodejs.org) is required to install dependencies and run scripts via `npm`.
+
+#### For Deploying Edge Functions to Supabase
+
+This is necessary for creating the cells/food for players to eat.
+
+[Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) is required to login and deploy the functions to supabase, run them from supabase folder, consider this is my `settings.json` if using vscode:
+
+```
+{
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.lint": true,
+  "deno.unstable": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
+```
 
 ## Available Commands
 
@@ -25,47 +44,25 @@ This template has been updated for:
 
 ## Writing Code
 
-After cloning the repo, run `npm install` from your project directory. Then, you can start the local development server by running `npm run dev`.
+After cloning the repo, run `npm install` from your project directory. Then, you can start the local development server by running npm run dev`.
 
-The local development server runs on `http://localhost:8080` by default. Please see the Vite documentation if you wish to change this, or add SSL support.
+The local development server runs on `http://localhost:8080` by default. Please see the Vite documentation if you wish to change this, or add SSL support. 
+Modified to run over your actual network so you can visit the ip-address:8080 on another device and play. If you do *NOT* want this to happen remove from `package.json` script for dev the `--host` flag
 
 Once the server is running you can edit any of the files in the `src` folder. Vite will automatically recompile your code and then reload the browser.
 
-## Template Project Structure
+## Project Structure
 
 We have provided a default project structure to get you started. This is as follows:
 
 - `index.html` - A basic HTML page to contain the game.
 - `src` - Contains the game source code.
 - `src/main.js` - The main entry point. This contains the game configuration and starts the game.
+- `src/broadcast.js` - Contains the Supabase client and room initialization.
 - `src/scenes/` - The Phaser Scenes are in this folder.
+- `src/objects/` - The Phaser Objects/Entities are in this folder.
 - `public/style.css` - Some simple CSS rules to help with page layout.
 - `public/assets` - Contains the static assets used by the game.
-
-## Handling Assets
-
-Vite supports loading assets via JavaScript module `import` statements.
-
-This template provides support for both embedding assets and also loading them from a static folder. To embed an asset, you can import it at the top of the JavaScript file you are using it in:
-
-```js
-import logoImg from './assets/logo.png'
-```
-
-To load static files such as audio files, videos, etc place them into the `public/assets` folder. Then you can use this path in the Loader calls within Phaser:
-
-```js
-preload ()
-{
-    //  This is an example of an imported bundled image.
-    //  Remember to import it at the top of this file
-    this.load.image('logo', logoImg);
-
-    //  This is an example of loading a static image
-    //  from the public/assets folder:
-    this.load.image('background', 'assets/bg.png');
-}
-```
 
 When you issue the `npm run build` command, all static assets are automatically copied to the `dist/assets` folder.
 
@@ -91,9 +88,3 @@ We love to see what developers like you create with Phaser! It really motivates 
 **Discord:** Join us on [Discord](https://discord.gg/phaser)<br />
 **Code:** 2000+ [Examples](https://labs.phaser.io)<br />
 **Read:** The [Phaser World](https://phaser.io/community/newsletter) Newsletter<br />
-
-Created by [Phaser Studio](mailto:support@phaser.io). Powered by coffee, anime, pixels and love.
-
-The Phaser logo and characters are &copy; 2011 - 2024 Phaser Studio Inc.
-
-All rights reserved.

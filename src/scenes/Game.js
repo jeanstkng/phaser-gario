@@ -36,9 +36,12 @@ export class Game extends Scene {
 
     this.globe = this.physics.add
       .image(spawnRandPosX, spawnRandPosY, "ball")
-      .setDisplaySize(24, 24)
-      .setCircle(24)
+      .setDisplaySize(36, 36)
+      .setCircle(36)
+      .setName("globe")
       .setCollideWorldBounds(true);
+
+    this.globe.body.onCollide = true;
 
     const userStatus = {
       id: this.userId,
@@ -50,18 +53,16 @@ export class Game extends Scene {
     this.channelA
       .on("presence", { event: "sync" }, () => {
         const newState = this.channelA.presenceState();
-        console.log(newState, "newState pa");
 
         const foundUsr = Object.keys(newState).find((key) =>
           this.users.find((user) => newState[key][0].id === user.id)
         );
 
         if (!foundUsr && Object.keys(newState).length > 1) {
-          console.log("chi", Object.keys(newState).length);
           const newBall = this.physics.add
             .image(newState.initialX, newState.initialY, "ball")
-            .setDisplaySize(24, 24)
-            .setCircle(24)
+            .setDisplaySize(36, 36)
+            .setCircle(36)
             .setCollideWorldBounds(true);
 
           newBall.this.physics.add.collider(newBall);
@@ -82,7 +83,10 @@ export class Game extends Scene {
         );
 
         if (usersToLeave.length > 0) {
-          this.usersToLeave.map((usr) => usr.userGlobe);
+          this.usersToLeave.map((usr) => usr.userGlobe.destroy());
+          this.users = this.users.filter(
+            (user) => user.id !== leftPresences.id
+          );
         }
       })
       .on(
@@ -111,8 +115,8 @@ export class Game extends Scene {
             if (!foundUser) {
               const newBall = this.physics.add
                 .image(x, y, "ball")
-                .setDisplaySize(24, 24)
-                .setCircle(24)
+                .setDisplaySize(36, 36)
+                .setCircle(36)
                 .setCollideWorldBounds(true);
               this.physics.add.collider(newBall);
 
@@ -145,6 +149,21 @@ export class Game extends Scene {
           score: this.score,
         });
 
+        const { data } = await this.clientMain.from("cells").select();
+        data.map((cell) => {
+          if (!cell.isEaten) {
+            const newCell = this.physics.add
+              .image(cell.x, cell.y, "food")
+              .setData({ id: cell.id })
+              .setName("cell")
+              .setDisplaySize(24, 24)
+              .setCircle(24)
+              .setCollideWorldBounds(true);
+
+            this.physics.add.collider(this.globe, newCell);
+          }
+        });
+
         this.isConnected = true;
         this.events.emit("connection", this.isConnected);
       });
@@ -158,7 +177,22 @@ export class Game extends Scene {
 
     this.cursor = this.add.rectangle(0, 0, 20, 20);
 
-    this.physics.add.collider(this.globe);
+    this.physics.world.on(
+      "collide",
+      async (gameObject1, gameObject2, body1, body2) => {
+        if (gameObject2.name === "cell") {
+          gameObject2.destroy();
+          await this.clientMain
+            .from("cells")
+            .update({
+              isEaten: true,
+            })
+            .match({
+              id: gameObject2.getData("id"),
+            });
+        }
+      }
+    );
 
     this.input.on("pointermove", (pointer) => {
       this.actualPointerPos = this.cam.getWorldPoint(pointer.x, pointer.y);

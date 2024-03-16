@@ -29,6 +29,7 @@ export class Preloader extends Scene {
     this.load.image("logo", "logo.png");
     this.load.image("grid", "uv-grid.png");
     this.load.image("ball", "ball.png");
+    this.load.image("food", "food_red.png");
   }
 
   create() {
