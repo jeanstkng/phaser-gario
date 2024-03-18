@@ -19,7 +19,7 @@ This is a Phaser 3 project web game that uses Vite for bundling. It supports hot
 
 This is necessary for creating the cells/food for players to eat.
 
-[Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) is required to login and deploy the functions to supabase, run them from supabase folder, consider this is my `settings.json` if using vscode:
+[Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) is required to login and deploy the functions to supabase, run commands from supabase folder, consider this is my `settings.json` if using vscode, but it should be automatically configured when installing supabase cli:
 
 ```
 {
@@ -44,16 +44,15 @@ This is necessary for creating the cells/food for players to eat.
 
 ## Writing Code
 
-After cloning the repo, run `npm install` from your project directory. Then, you can start the local development server by running npm run dev`.
+After cloning the repo, run `npm install` from your project directory. Then, you can start the local development server by running `npm run dev`.
 
 The local development server runs on `http://localhost:8080` by default. Please see the Vite documentation if you wish to change this, or add SSL support. 
-Modified to run over your actual network so you can visit the ip-address:8080 on another device and play. If you do *NOT* want this to happen remove from `package.json` script for dev the `--host` flag
+
+Modified to run over your actual network so you can visit `youripaddress:8080` on another device and play. If you do **NOT** want this to happen remove from `package.json` script for dev the `--host` flag
 
 Once the server is running you can edit any of the files in the `src` folder. Vite will automatically recompile your code and then reload the browser.
 
 ## Project Structure
-
-We have provided a default project structure to get you started. This is as follows:
 
 - `index.html` - A basic HTML page to contain the game.
 - `src` - Contains the game source code.
@@ -71,8 +70,6 @@ When you issue the `npm run build` command, all static assets are automatically 
 After you run the `npm run build` command, your code will be built into a single bundle and saved to the `dist` folder, along with any other assets your project imported, or stored in the public assets folder.
 
 In order to deploy your game, you will need to upload *all* of the contents of the `dist` folder to a public facing web server.
-
-## Customizing the Template
 
 ### Vite
 

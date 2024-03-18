@@ -1,6 +1,6 @@
 import { Scene } from "phaser";
 import { getRealtimeChannel } from "../broadcast";
-import { v4 as uuidv4 } from "uuid";
+import Globe from "../objects/Globe";
 
 export class Game extends Scene {
   globe;
@@ -14,46 +14,38 @@ export class Game extends Scene {
   timeElapsed = 0;
   timeOut = 50;
   canSendMovement = false;
-  actualPointerPos;
-  score = 1;
 
   constructor() {
     super("Game");
-  }
+    this.globe = new Globe(this);
 
-  create() {
-    this.userId = uuidv4();
-    this.users.push({ id: this.userId });
-
+    // Initialize Client and Room from Supabase Realtime Channel
     const { room, client } = getRealtimeChannel();
     this.channelA = room;
     this.clientMain = client;
+  }
 
-    this.add.image(0, 0, "grid").setOrigin(0);
+  create() {
+    this.globe.initialize();
 
-    const spawnRandPosX = Phaser.Math.RND.integerInRange(200, 3900);
-    const spawnRandPosY = Phaser.Math.RND.integerInRange(200, 3900);
+    this.users.push({ id: this.globe.userId });
 
-    this.globe = this.physics.add
-      .image(spawnRandPosX, spawnRandPosY, "ball")
-      .setDisplaySize(36, 36)
-      .setCircle(36)
-      .setName("globe")
-      .setCollideWorldBounds(true);
-
-    this.globe.body.onCollide = true;
+    this.add.image(0, 0, "grid").setOrigin(0); // Set background image
 
     const userStatus = {
-      id: this.userId,
+      id: this.globe.userId,
       isConnected: true,
-      initialX: this.globe.x,
-      initialY: this.globe.y,
+      initialX: this.globe.gameObject.x,
+      initialY: this.globe.gameObject.y,
     };
 
     this.channelA
       .on("presence", { event: "sync" }, () => {
         const newState = this.channelA.presenceState();
 
+        /* Find in the local users the user that has the same id from the state received
+           consider that each state has a key then data is inside an array and always
+           on first position */
         const foundUsr = Object.keys(newState).find((key) =>
           this.users.find((user) => newState[key][0].id === user.id)
         );
@@ -74,10 +66,8 @@ export class Game extends Scene {
             y: newState.initialY,
           });
         }
-        console.log("sync", newState);
       })
       .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-        console.log("leave", key, leftPresences);
         const usersToLeave = this.users.filter(
           (user) => user.id === leftPresences.id
         );
@@ -106,23 +96,19 @@ export class Game extends Scene {
 
           if (
             payload.eventType === "INSERT" &&
-            payload.new.id !== this.userId
+            payload.new.id !== this.globe.userId
           ) {
             const foundUser = this.users.find(
               (user) => user.id === payload.new.id
             );
 
             if (!foundUser) {
-              const newBall = this.physics.add
-                .image(x, y, "ball")
-                .setDisplaySize(36, 36)
-                .setCircle(36)
-                .setCollideWorldBounds(true);
-              this.physics.add.collider(newBall);
+              const newBall = new Globe(this, x, y);
+              newBall.initialize();
 
               this.users.push({
                 id: id,
-                userGlobe: newBall,
+                userGlobe: newBall.gameObject,
                 x: x,
                 y: y,
               });
@@ -143,10 +129,10 @@ export class Game extends Scene {
 
         await this.channelA.track(userStatus); // Send presence status
         await this.clientMain.from("players").insert({
-          id: this.userId,
-          x: this.globe.x,
-          y: this.globe.y,
-          score: this.score,
+          id: this.globe.userId,
+          x: this.globe.gameObject.x,
+          y: this.globe.gameObject.y,
+          score: this.globe.score,
         });
 
         const { data } = await this.clientMain.from("cells").select();
@@ -154,13 +140,15 @@ export class Game extends Scene {
           if (!cell.isEaten) {
             const newCell = this.physics.add
               .image(cell.x, cell.y, "food")
-              .setData({ id: cell.id })
               .setName("cell")
               .setDisplaySize(24, 24)
               .setCircle(24)
               .setCollideWorldBounds(true);
 
-            this.physics.add.collider(this.globe, newCell);
+            newCell.setDataEnabled();
+            newCell.setData("id", cell.id);
+
+            this.physics.add.collider(this.globe.gameObject, newCell);
           }
         });
 
@@ -173,7 +161,7 @@ export class Game extends Scene {
     this.cam.setBounds(0, 0, 4096, 4096).setZoom(2);
     this.physics.world.setBounds(100, 100, 4000, 4000);
 
-    this.cam.startFollow(this.globe);
+    this.cam.startFollow(this.globe.gameObject);
 
     this.cursor = this.add.rectangle(0, 0, 20, 20);
 
@@ -181,26 +169,38 @@ export class Game extends Scene {
       "collide",
       async (gameObject1, gameObject2, body1, body2) => {
         if (gameObject2.name === "cell") {
+          const cellId = gameObject2.getData("id");
           gameObject2.destroy();
-          await this.clientMain
+
+          this.globe.score += 0.05;
+
+          this.globe.gameObject.setDisplaySize(
+            this.globe.initialSize * this.globe.score,
+            this.globe.initialSize * this.globe.score
+          );
+          this.globe.gameObject.setCircle(
+            this.globe.initialSize * this.globe.score
+          );
+
+          if (this.cam.zoom > 1) {
+            this.globe.speed -= 0.025;
+            this.cam.setZoom(this.cam.zoom - this.globe.zoomDisminution);
+          }
+
+          this.clientMain
             .from("cells")
             .update({
               isEaten: true,
             })
             .match({
-              id: gameObject2.getData("id"),
+              id: cellId,
             });
         }
       }
     );
-
-    this.input.on("pointermove", (pointer) => {
-      this.actualPointerPos = this.cam.getWorldPoint(pointer.x, pointer.y);
-      this.physics.moveToObject(this.globe, this.actualPointerPos, 200);
-    });
   }
 
-  async update(time, delta) {
+  async update(_time, delta) {
     if (this.timeElapsed >= this.timeOut) {
       this.timeElapsed = 0;
       this.canSendMovement = true;
@@ -210,7 +210,7 @@ export class Game extends Scene {
     }
 
     this.users
-      .filter((val) => val.id !== this.userId)
+      .filter((val) => val.id !== this.globe.userId)
       .map((usr) => {
         if (
           Phaser.Math.Distance.Between(
@@ -226,16 +226,16 @@ export class Game extends Scene {
         }
       });
 
-    if (this.isConnected && this.userId && this.canSendMovement) {
+    if (this.isConnected && this.globe.userId && this.canSendMovement) {
       await this.clientMain
         .from("players")
         .update({
-          x: this.globe.x,
-          y: this.globe.y,
-          score: this.score,
+          x: this.globe.gameObject.x,
+          y: this.globe.gameObject.y,
+          score: this.globe.score,
         })
         .match({
-          id: this.userId,
+          id: this.globe.userId,
         });
     }
   }
