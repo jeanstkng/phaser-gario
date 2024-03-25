@@ -6,8 +6,8 @@ export class UIScene extends Phaser.Scene {
   create() {
     //  Our Text object to display the Score
     const info = this.add.text(10, 10, "disconnected", {
-      font: "48px Arial",
-      fill: "#fff",
+      font: "16px Arial",
+      fill: "#000",
     });
 
     //  Grab a reference to the Game Scene

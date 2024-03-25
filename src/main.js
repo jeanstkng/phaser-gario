@@ -21,7 +21,7 @@ const config = {
   scene: [Boot, Preloader, MainMenu, Game, UIScene, GameOver],
   physics: {
     default: "arcade",
-    arcade: { debug: false },
+    arcade: { debug: true },
   },
 };
 

@@ -5,13 +5,16 @@ class Globe {
     this.userId = id ?? uuidv4();
     this.score = 1;
     this.initialSize = 36;
-    this.zoomDisminution = 0.01;
+    this.initialCircle = 130;
+    this.zoomDisminution = 0.05;
+    this.originalScale = 0;
     this.speed = 200;
     this.timeElapsed = 0;
     this.timeOut = 50;
     this.canSendMovement = false;
     this.game = game;
     this.client = game.mainClient;
+    this.room = game.channelA;
     this.gameObject;
     this.actualPointerPos;
     this.isMainPlayer = isMainPlayer;
@@ -32,10 +35,17 @@ class Globe {
     this.gameObject = this.game.physics.add
       .image(this.x, this.y, "ball")
       .setDisplaySize(this.initialSize, this.initialSize)
-      .setCircle(this.initialSize)
+      .setCircle(this.initialCircle)
       .setName("globe")
-      .setCollideWorldBounds(true)
-      .setDepth(this.score);
+      .setCollideWorldBounds(true);
+
+    this.originalScale = this.gameObject.scale;
+    this.score = this.originalScale;
+
+    this.gameObject.setDepth(this.score);
+
+    this.gameObject.setDataEnabled();
+    this.gameObject.setData("id", this.userId);
 
     this.gameObject.body.onOverlap = true;
 
@@ -69,18 +79,15 @@ class Globe {
 
               this.score += 0.05;
 
-              this.gameObject.setDisplaySize(
-                this.initialSize * this.score,
-                this.initialSize * this.score
-              );
-              this.gameObject.setCircle(this.initialSize * this.score);
+              console.log(this.score, "score para escala al comer cell");
+              this.gameObject.setScale(this.score, this.score);
 
-              if (this.cam.zoom > 1) {
-                this.speed -= 0.025;
+              if (this.cam.zoom > 0.25)
                 this.cam.setZoom(this.cam.zoom - this.zoomDisminution);
-              }
 
-             await this.client
+              if (this.speed > 25) this.speed -= 0.5;
+
+              await this.client
                 .from("cells")
                 .update({
                   isEaten: true,
@@ -91,13 +98,35 @@ class Globe {
               break;
 
             case "globe":
-              if (gameObject1.depth > gameObject2.depth) {
-                console.log("El diablaso");
+              if (gameObject2.depth > gameObject1.depth) {
+                const overlappedObjId = gameObject1.getData("id");
+                if (overlappedObjId === this.userId) {
+                  this.room.send({
+                    type: "broadcast",
+                    event: "overlap",
+                    payload: {
+                      winner: gameObject2.getData("id"),
+                      loser: overlappedObjId,
+                      loserScore: this.score / 3,
+                    },
+                  });
+
+                  this.gameObject.alpha = 0;
+                  this.speed = 200;
+                  this.score = this.originalScale;
+
+                  this.gameObject.setScale(
+                    this.originalScale,
+                    this.originalScale
+                  );
+
+                  this.cam.setZoom(2);
+                  this.gameObject.x = Phaser.Math.RND.integerInRange(200, 3900);
+                  this.gameObject.y = Phaser.Math.RND.integerInRange(200, 3900);
+
+                  this.gameObject.alpha = 1;
+                }
               }
-
-              break;
-
-            default:
               break;
           }
         }
@@ -121,6 +150,7 @@ class Globe {
           x: this.gameObject.x,
           y: this.gameObject.y,
           score: this.score,
+          speed: this.speed,
         })
         .match({
           id: this.userId,

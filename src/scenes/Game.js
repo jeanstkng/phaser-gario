@@ -30,7 +30,10 @@ export class Game extends Scene {
       id: this.globe.userId,
       initialX: this.globe.gameObject.x,
       initialY: this.globe.gameObject.y,
+      speed: this.globe.speed,
     };
+
+    this.cam = this.cameras.main;
 
     this.channelA
       .on("presence", { event: "sync" }, () => {
@@ -65,21 +68,44 @@ export class Game extends Scene {
               userGlobe: newBall.gameObject,
               x: usrState.initialX,
               y: usrState.initialY,
+              speed: usrState.speed,
             });
           });
         }
       })
-      .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+      .on("presence", { event: "leave" }, async ({ leftPresences }) => {
         const usersToLeave = this.users.filter((user) =>
           leftPresences.find((elem) => elem.id === user.id)
         );
 
         if (usersToLeave.length > 0) {
-          usersToLeave.map((usr) => usr.userGlobe.destroy());
+          await Promise.all(
+            usersToLeave.map(async (usr) => {
+              await this.mainClient.from("players").delete().eq("id", usr.id);
+              usr.userGlobe.destroy();
+            })
+          );
+
           this.users = this.users.filter((user) =>
             leftPresences.find((elem) => elem.id !== user.id)
           );
         }
+      })
+      .on("broadcast", { event: "overlap" }, async ({ payload }) => {
+        if (payload.winner === this.globe.userId) {
+          this.globe.score += +payload.loserScore;
+          this.globe.gameObject.setScale(this.globe.score, this.globe.score);
+
+          if (this.cam.zoom > 0.25)
+            this.cam.setZoom(this.cam.zoom - this.globe.zoomDisminution * 2);
+
+          if (this.speed > 25) this.globe.speed -= 5;
+        }
+
+        const loserUser = this.users.find((usr) => usr.id === payload.loser);
+        loserUser.userGlobe.destroy();
+
+        this.users = this.users.filter((user) => user.id !== loserUser.id);
       })
       .on(
         "postgres_changes",
@@ -104,6 +130,7 @@ export class Game extends Scene {
           x: this.globe.gameObject.x,
           y: this.globe.gameObject.y,
           score: this.globe.score,
+          speed: this.globe.speed,
         });
 
         const { data } = await this.mainClient.from("cells").select();
@@ -113,7 +140,7 @@ export class Game extends Scene {
               .image(cell.x, cell.y, "food")
               .setName("cell")
               .setDisplaySize(24, 24)
-              .setCircle(24)
+              .setCircle(256)
               .setCollideWorldBounds(true);
 
             newCell.setDataEnabled();
@@ -137,52 +164,58 @@ export class Game extends Scene {
     this.users
       .filter((val) => val.id !== this.globe.userId)
       .map((usr) => {
-        // if (
-        //   Phaser.Math.Distance.Between(
-        //     usr.userGlobe.x,
-        //     usr.userGlobe.y,
-        //     usr.x,
-        //     usr.y
-        //   ) <= 2
-        // ) {
-        //   usr.userGlobe.body.reset(usr.x, usr.y);
-        // } else {
-        this.physics.moveTo(usr.userGlobe, usr.x, usr.y, 200);
-        // }
+        this.physics.moveTo(usr.userGlobe, usr.x, usr.y, usr.speed);
+        usr.userGlobe.setDepth(usr.userGlobe.getData("score"));
       });
 
     this.globe.update(this.mainClient, this.isConnected, delta);
   }
 
   handlePlayersTableChanges(payload) {
-    const { x, y, id, score } = payload.new;
+    const { x, y, id, speed, score } = payload.new;
 
     switch (payload.eventType) {
       case "UPDATE":
+        const foundUser = this.users.find((user) => user.id === id);
+        if (id !== this.globe.userId && !foundUser) {
+          const newBall = new Globe(this, x, y, id, false);
+          newBall.initialize();
+
+          console.log(score, "el score en este caso");
+          console.log(newBall.gameObject.scale, "la escala que tal");
+
+          this.physics.add.overlap(this.globe.gameObject, newBall.gameObject);
+
+          this.users.push({
+            id: id,
+            userGlobe: newBall.gameObject,
+            x: x,
+            y: y,
+            speed: speed,
+          });
+          return;
+        }
         this.users.map((usr) => {
           if (usr.id === id && this.globe.userId !== id) {
             usr.x = x;
             usr.y = y;
-            usr.userGlobe.setDepth(score);
+            usr.userGlobe.setData("score", score);
+            usr.speed = speed;
 
-            usr.userGlobe.setDisplaySize(
-              this.globe.initialSize * score,
-              this.globe.initialSize * score
-            );
-            usr.userGlobe.setCircle(this.globe.initialSize * score);
+            console.log(score, "el score en este OTRO caso");
+            usr.userGlobe.setScale(score, score);
           }
         });
         break;
 
       case "INSERT":
-        if (payload.new.id !== this.globe.userId) {
-          const foundUser = this.users.find(
-            (user) => user.id === payload.new.id
-          );
+        if (id !== this.globe.userId) {
+          const foundUser = this.users.find((user) => user.id === id);
 
           if (foundUser) {
             foundUser.x = x;
             foundUser.y = y;
+            foundUser.speed = speed;
             return;
           }
 
@@ -196,6 +229,7 @@ export class Game extends Scene {
             userGlobe: newBall.gameObject,
             x: x,
             y: y,
+            speed: newBall.speed,
           });
         }
         break;

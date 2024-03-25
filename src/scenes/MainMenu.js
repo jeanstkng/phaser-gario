@@ -11,7 +11,7 @@ export class MainMenu extends Scene {
     this.add.image(512, 300, "logo");
 
     this.add
-      .text(512, 460, "Main Menu", {
+      .text(512, 460, "Click to Start", {
         fontFamily: "Arial Black",
         fontSize: 38,
         color: "#ffffff",
